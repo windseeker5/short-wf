@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#070817"/>
+      <stop offset="0.48" stop-color="#111027"/>
+      <stop offset="1" stop-color="#080711"/>
+    </linearGradient>
+    <radialGradient id="cyanBloom" cx="0" cy="0.38" r="0.78">
+      <stop offset="0" stop-color="#00d8e8" stop-opacity="0.22"/>
+      <stop offset="0.38" stop-color="#08758b" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#07101a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="magentaBloom" cx="1" cy="0.15" r="0.72">
+      <stop offset="0" stop-color="#f23dac" stop-opacity="0.23"/>
+      <stop offset="0.42" stop-color="#7f256e" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#11091b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="centerVignette" cx="0.5" cy="0.46" r="0.58">
+      <stop offset="0" stop-color="#050711" stop-opacity="0.38"/>
+      <stop offset="0.7" stop-color="#050711" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#050711" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="horizon" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00e4ef" stop-opacity="0"/>
+      <stop offset="0.18" stop-color="#00e4ef" stop-opacity="0.65"/>
+      <stop offset="0.52" stop-color="#9784ff" stop-opacity="0.4"/>
+      <stop offset="0.82" stop-color="#ff3da5" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ff3da5" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="leftEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#00f0ff" stop-opacity="0"/>
+      <stop offset="0.22" stop-color="#00f0ff" stop-opacity="0.8"/>
+      <stop offset="0.74" stop-color="#00f0ff" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#00f0ff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rightEdge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff43ad" stop-opacity="0"/>
+      <stop offset="0.18" stop-color="#ff43ad" stop-opacity="0.75"/>
+      <stop offset="0.8" stop-color="#ff43ad" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ff43ad" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="scanlines" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="3" fill="#ffffff" fill-opacity="0.012"/>
+      <rect y="4" width="8" height="1" fill="#000000" fill-opacity="0.12"/>
+    </pattern>
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="lineGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#night)"/>
+  <rect width="1080" height="1920" fill="url(#cyanBloom)"/>
+  <rect width="1080" height="1920" fill="url(#magentaBloom)"/>
+
+  <!-- Broadcast-era vector arcs, intentionally concentrated in the gutters. -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M-240 390 C110 120 380 70 620 115" stroke="#15e8f2" stroke-opacity="0.16" stroke-width="4"/>
+    <path d="M-260 470 C110 180 410 125 680 176" stroke="#15e8f2" stroke-opacity="0.08" stroke-width="3"/>
+    <path d="M690 110 C950 185 1115 420 1270 700" stroke="#ff4caf" stroke-opacity="0.15" stroke-width="4"/>
+    <path d="M760 85 C1020 190 1185 430 1320 735" stroke="#ff4caf" stroke-opacity="0.07" stroke-width="3"/>
+  </g>
+
+  <!-- Small analog calibration marks, not decorative copy. -->
+  <g stroke="#8cf6ff" stroke-opacity="0.22" stroke-width="2">
+    <path d="M64 260h44M64 260v44M1016 260h-44M1016 260v44"/>
+    <path d="M64 1000h30M986 1000h30"/>
+  </g>
+  <g fill="#ff5cb5" fill-opacity="0.28">
+    <circle cx="1016" cy="330" r="4"/><circle cx="1016" cy="354" r="4"/><circle cx="1016" cy="378" r="4"/>
+  </g>
+  <g fill="#36e8f2" fill-opacity="0.25">
+    <circle cx="64" cy="900" r="4"/><circle cx="64" cy="924" r="4"/><circle cx="64" cy="948" r="4"/>
+  </g>
+
+  <!-- Horizon and restrained perspective grid. -->
+  <rect x="80" y="1100" width="920" height="2" fill="url(#horizon)" filter="url(#lineGlow)"/>
+  <g fill="none" stroke-width="2">
+    <g stroke="#25dbe8" stroke-opacity="0.11">
+      <path d="M540 1100L-100 1920"/><path d="M540 1100L90 1920"/><path d="M540 1100L270 1920"/>
+    </g>
+    <g stroke="#b55ce8" stroke-opacity="0.1">
+      <path d="M540 1100L450 1920"/><path d="M540 1100L630 1920"/>
+    </g>
+    <g stroke="#ff4ca9" stroke-opacity="0.11">
+      <path d="M540 1100L810 1920"/><path d="M540 1100L990 1920"/><path d="M540 1100L1180 1920"/>
+    </g>
+    <g stroke="url(#horizon)" stroke-opacity="0.32">
+      <path d="M110 1160H970"/><path d="M70 1235H1010"/><path d="M20 1335H1060"/>
+      <path d="M-55 1470H1135"/><path d="M-150 1655H1230"/><path d="M-280 1890H1360"/>
+    </g>
+  </g>
+
+  <!-- Keep the phone-facing center quiet and readable. -->
+  <rect width="1080" height="1920" fill="url(#centerVignette)"/>
+  <ellipse cx="230" cy="1760" rx="280" ry="90" fill="#00ddea" fill-opacity="0.08" filter="url(#softGlow)"/>
+  <ellipse cx="880" cy="1690" rx="280" ry="110" fill="#ff3ea9" fill-opacity="0.07" filter="url(#softGlow)"/>
+
+  <path d="M28 210V1710" stroke="url(#leftEdge)" stroke-width="4"/>
+  <path d="M1052 210V1710" stroke="url(#rightEdge)" stroke-width="4"/>
+  <rect width="1080" height="1920" fill="url(#scanlines)"/>
+  <rect x="2" y="2" width="1076" height="1916" rx="42" fill="none" stroke="#b594ff" stroke-opacity="0.12" stroke-width="3"/>
+</svg>

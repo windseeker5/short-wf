@@ -1,0 +1,4 @@
+textual==8.2.8
+fal-client==1.0.1
+# Processing dependencies are already installed in .venv:
+# auto-editor, openai-whisper, torch

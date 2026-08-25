@@ -1,0 +1,31 @@
+#!/bin/bash
+# Launch Short Studio in a compact dedicated terminal.
+set -e
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="$PROJECT_DIR/.venv/bin/python"
+
+if [ ! -x "$PYTHON" ]; then
+    echo "Python environment not found: $PROJECT_DIR/.venv"
+    exit 1
+fi
+
+# A second control panel would compete for the same recorder and preview windows.
+if pgrep -u "$UID" -f "^$PYTHON $PROJECT_DIR/app/short_studio.py" >/dev/null; then
+    omarchy-notification-send "Short Studio is already open" \
+        "Use the existing control panel" -u normal 2>/dev/null \
+        || notify-send "Short Studio is already open" 2>/dev/null \
+        || true
+    exit 0
+fi
+
+if [ "${1:-}" = "--here" ] || [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    [ "${1:-}" = "--here" ] && shift
+    exec "$PYTHON" "$PROJECT_DIR/app/short_studio.py" "$@"
+fi
+
+exec foot \
+    --title="Short Studio" \
+    --app-id="short-studio" \
+    --window-size-chars=92x42 \
+    --working-directory="$PROJECT_DIR" \
+    "$PYTHON" "$PROJECT_DIR/app/short_studio.py" "$@"

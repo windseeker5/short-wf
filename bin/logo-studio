@@ -1,0 +1,127 @@
+#!/bin/bash
+# One-command guided portrait → Nano Banana logo workflow.
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PORTRAIT="$PROJECT_DIR/scripts/portrait.sh"
+GENERATE="$PROJECT_DIR/scripts/generate_logo.py"
+PORTRAIT_DIR="$PROJECT_DIR/private/portraits"
+CANDIDATE_DIR="$PROJECT_DIR/private/logo-candidates"
+
+mkdir -p "$PORTRAIT_DIR" "$CANDIDATE_DIR"
+
+latest_portrait() {
+    find "$PORTRAIT_DIR" -maxdepth 1 -type f -name 'portrait-*.jpg' -printf '%T@ %p\n' 2>/dev/null \
+        | sort -nr | head -1 | cut -d' ' -f2-
+}
+
+open_latest_candidate() {
+    local candidate
+    candidate=$(find "$CANDIDATE_DIR" -maxdepth 1 -type f -name '*.png' -printf '%T@ %p\n' 2>/dev/null \
+        | sort -nr | head -1 | cut -d' ' -f2-)
+    if [ -n "$candidate" ]; then
+        mpv "$candidate" --title="Logo Candidate" --no-audio --no-osc --really-quiet &>/dev/null &
+    fi
+}
+
+choose_candidate() {
+    local -a candidates
+    mapfile -t candidates < <(find "$CANDIDATE_DIR" -maxdepth 1 -type f -name '*.png' -printf '%T@ %p\n' 2>/dev/null \
+        | sort -nr | cut -d' ' -f2-)
+    if [ "${#candidates[@]}" -eq 0 ]; then
+        echo "No generated logo candidates found." >&2
+        return 1
+    fi
+    echo "Choose the artwork whose colors and style must be preserved:" >&2
+    local i
+    for i in "${!candidates[@]}"; do
+        printf '  %d) %s\n' "$((i + 1))" "$(basename "${candidates[$i]}")" >&2
+    done
+    local selection
+    read -r -p "Choose 1–${#candidates[@]}: " selection >&2
+    [[ "$selection" =~ ^[0-9]+$ ]] && ((selection >= 1 && selection <= ${#candidates[@]})) || {
+        echo "Invalid selection." >&2
+        return 1
+    }
+    printf '%s\n' "${candidates[$((selection - 1))]}"
+}
+
+clear
+printf '\n🎨  LOGO STUDIO\n'
+printf '    Camera portrait → illustrated sticker logo\n\n'
+printf 'Your portrait remains local until you explicitly generate a logo.\n'
+printf 'The preview is opening now. Center your face and use soft, even light.\n\n'
+PORTRAIT_MENU=1 "$PORTRAIT" preview || true
+
+while true; do
+    photo=$(latest_portrait)
+    printf '\n────────────────────────────────────────────────\n'
+    if [ -n "${photo:-}" ]; then
+        printf 'Selected source: %s\n' "$(basename "$photo")"
+    else
+        printf 'No portrait captured yet.\n'
+    fi
+    printf '\n'
+    printf '  1) Take a portrait\n'
+    printf '  2) Review portraits\n'
+    printf '  3) Create vintage sticker logo\n'
+    printf '  4) Create vintage sticker with peeled corner\n'
+    printf '  5) Create retro-tech sticker logo\n'
+    printf '  6) Create editorial vector logo\n'
+    printf '  7) Create screen-print logo\n'
+    printf '  8) Add a peeled corner to an existing favorite\n'
+    printf '  9) Quit\n\n'
+    read -r -p 'Choose 1–9: ' choice
+
+    case "$choice" in
+        1)
+            PORTRAIT_MENU=1 "$PORTRAIT" shoot
+            ;;
+        2)
+            "$PORTRAIT" sheet || true
+            ;;
+        3|4|5|6|7)
+            if [ -z "${photo:-}" ]; then
+                echo "Take a portrait first."
+                continue
+            fi
+            case "$choice" in
+                3) style="vintage-sticker" ;;
+                4) style="peel-corner-sticker" ;;
+                5) style="retro-tech" ;;
+                6) style="editorial-vector" ;;
+                7) style="screenprint" ;;
+            esac
+            printf '\nThis sends ONLY %s to fal.ai to generate one %s logo candidate.\n' \
+                "$(basename "$photo")" "$style"
+            read -r -p 'Type GENERATE to continue: ' consent
+            if [ "$consent" != "GENERATE" ]; then
+                echo "Cancelled — nothing was uploaded."
+                continue
+            fi
+            "$GENERATE" "$photo" --style="$style" --count=1 --confirm-upload
+            open_latest_candidate
+            echo "Candidate opened. If you do not like it, choose another style or capture another portrait."
+            ;;
+        8)
+            reference=$(choose_candidate) || continue
+            printf '\nThis sends ONLY %s to fal.ai and requests one change: a peeled bottom-right corner.\n' \
+                "$(basename "$reference")"
+            read -r -p 'Type GENERATE to continue: ' consent
+            if [ "$consent" != "GENERATE" ]; then
+                echo "Cancelled — nothing was uploaded."
+                continue
+            fi
+            "$GENERATE" "$reference" --style=preserve-style-peel --count=1 --confirm-upload
+            open_latest_candidate
+            echo "Refined candidate opened. Its style should match your chosen reference."
+            ;;
+        9|q|Q)
+            echo "Logo Studio closed. Your local portraits are in private/portraits/."
+            exit 0
+            ;;
+        *)
+            echo "Choose a number from 1 to 9."
+            ;;
+    esac
+done

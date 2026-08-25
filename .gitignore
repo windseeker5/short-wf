@@ -1,0 +1,17 @@
+# Credentials — never commit.
+.env
+.env.*
+!.env.example
+
+# Personal captures, generated logo experiments, recordings, and exports.
+private/
+
+# Local environments and Python caches.
+.venv/
+__pycache__/
+*.py[cod]
+
+# Disposable runtime/render/debug artifacts.
+outputs/
+inputs/
+.playwright-mcp/
