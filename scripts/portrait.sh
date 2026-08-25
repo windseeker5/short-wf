@@ -5,6 +5,7 @@
 #   ./scripts/portrait.sh preview       open a live, cropped portrait preview
 #   ./scripts/portrait.sh shoot         capture one 4K source photograph
 #   ./scripts/portrait.sh sheet         create a contact sheet of local captures
+#   ./scripts/portrait.sh close         close this workflow's camera preview
 #   ./scripts/portrait.sh clear         delete only local, unapproved captures
 #
 # The script never uploads a photo. Upload happens only in phase two, after a
@@ -157,6 +158,7 @@ case "${1:-}" in
     preview) start_preview ;;
     shoot)   shoot ;;
     sheet)   sheet ;;
+    close)   preview_running && stop_preview || true ;;
     clear)   clear ;;
     *)
         sed -n '2,12p' "$0"

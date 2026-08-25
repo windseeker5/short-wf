@@ -21,11 +21,12 @@ It provides a small terminal control panel to prepare a 9:16 recording area, sho
 # Main recording control panel
 ./bin/short-studio
 
-# Portrait → sticker-logo workflow
+# Brand Studio is inside Short Studio: press L, then Esc to return.
+# The standalone launcher remains available as a compatibility fallback.
 ./bin/logo-studio
 ```
 
-On this machine, `SUPER + ALT + D` opens Short Studio.
+On this machine, `SUPER + ALT + D` opens Short Studio. Press `L` for the separate Brand Studio screen, then `Esc` to return to recording.
 
 ## Workflow
 
@@ -40,6 +41,8 @@ The TUI intentionally keeps the recording workflow simple:
 3. Toggle **Studio**, **Pixel**, or **Camera** when needed
 4. Start / stop recording
 5. Process the finished short
+
+For portraits and logo candidates, press `L` to open **Brand Studio**. It keeps portrait capture, style generation, and peeled-corner refinement off the recording screen.
 
 ## Stack
 

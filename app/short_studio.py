@@ -17,7 +17,8 @@ from typing import Iterable
 from textual import work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Button, Footer, Header, Label, RichLog, Static
+from textual.screen import Screen
+from textual.widgets import Button, Footer, Header, Label, RichLog, Select, Static
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_DIR / "scripts"
@@ -92,6 +93,228 @@ def detached(*args: str) -> subprocess.Popen[bytes]:
         stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
+
+
+class BrandStudioScreen(Screen[None]):
+    """Private portrait and logo-generation workflow, separate from recording."""
+
+    BINDINGS = [
+        ("escape", "back", "Back to recording"),
+        ("l", "back", "Back to recording"),
+        ("q", "back", "Back to recording"),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.pending: tuple[str, Path] | None = None
+
+    @property
+    def portraits_dir(self) -> Path:
+        return PROJECT_DIR / "private" / "portraits"
+
+    @property
+    def candidates_dir(self) -> Path:
+        return PROJECT_DIR / "private" / "logo-candidates"
+
+    def latest_portrait(self) -> Path | None:
+        photos = list(self.portraits_dir.glob("portrait-*.jpg"))
+        return max(photos, key=lambda path: path.stat().st_mtime) if photos else None
+
+    def candidate_options(self) -> list[tuple[str, str]]:
+        candidates = sorted(
+            self.candidates_dir.glob("*.png"), key=lambda path: path.stat().st_mtime, reverse=True
+        )
+        return [(path.name, str(path)) for path in candidates]
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        yield Static("BRAND STUDIO   Portrait → sticker logo", id="brand-status")
+        with Vertical(id="brand-main"):
+            with Vertical(classes="brand-panel"):
+                yield Label("1  PORTRAIT", classes="brand-title")
+                yield Static(
+                    "Your photos stay in private/portraits. Nothing is uploaded until you confirm generation.",
+                    classes="help",
+                )
+                with Horizontal(classes="actions"):
+                    yield Button("Open camera preview", id="brand-preview")
+                    yield Button("Capture 4K portrait", id="brand-capture")
+                    yield Button("Review portraits", id="brand-review")
+            with Vertical(classes="brand-panel"):
+                yield Label("2  CREATE A LOGO", classes="brand-title")
+                yield Static(
+                    "Choose a style. Generation uses your newest portrait and asks before it uploads anything.",
+                    classes="help",
+                )
+                with Horizontal(classes="actions"):
+                    yield Button("Vintage sticker", id="style-vintage")
+                    yield Button("Retro tech", id="style-retro")
+                    yield Button("Editorial vector", id="style-editorial")
+                    yield Button("Screen print", id="style-screenprint")
+            with Vertical(classes="brand-panel"):
+                yield Label("3  REFINE A FAVORITE", classes="brand-title")
+                yield Static(
+                    "Select an existing candidate, then add only a peeled bottom-right corner while preserving its style.",
+                    classes="help",
+                )
+                with Horizontal(classes="actions"):
+                    yield Select([( "No logo candidates yet", "")], value="", allow_blank=True, id="brand-candidate")
+                    yield Button("Open selected", id="brand-open", disabled=True)
+                    yield Button("Add peeled corner", id="style-peel", disabled=True)
+            with Horizontal(classes="actions"):
+                yield Button("Confirm upload & generate", id="confirm-upload", disabled=True)
+                yield Button("Cancel", id="cancel-upload", disabled=True)
+            yield RichLog(id="brand-log", markup=True, wrap=True, highlight=True)
+        yield Footer()
+
+    def write_log(self, message: str) -> None:
+        self.query_one("#brand-log", RichLog).write(message)
+
+    def status(self, message: str) -> None:
+        self.query_one("#brand-status", Static).update(message)
+
+    def refresh_candidates(self) -> None:
+        select = self.query_one("#brand-candidate", Select)
+        options = self.candidate_options()
+        select.set_options(options or [("No logo candidates yet", "")])
+        select.value = options[0][1] if options else ""
+        enabled = bool(options)
+        self.query_one("#brand-open", Button).disabled = not enabled
+        self.query_one("#style-peel", Button).disabled = not enabled
+
+    async def on_mount(self) -> None:
+        self.portraits_dir.mkdir(parents=True, exist_ok=True)
+        self.candidates_dir.mkdir(parents=True, exist_ok=True)
+        self.refresh_candidates()
+        latest = self.latest_portrait()
+        if latest:
+            self.status(f"BRAND STUDIO   Latest portrait: {latest.name}")
+        else:
+            self.status("BRAND STUDIO   Open the camera, then capture your first portrait")
+        self.write_log("[bold #f1a9da]Private by default.[/] Portraits and candidates stay under private/.")
+
+    def set_pending(self, style: str, source: Path) -> None:
+        self.pending = (style, source)
+        self.query_one("#confirm-upload", Button).disabled = False
+        self.query_one("#cancel-upload", Button).disabled = False
+        self.status(f"READY TO GENERATE   {style} from {source.name}")
+        self.write_log(
+            f"[yellow]Ready:[/] this will upload [bold]{source.name}[/] to fal.ai. "
+            "Click “Confirm upload & generate” to continue."
+        )
+
+    def clear_pending(self) -> None:
+        self.pending = None
+        self.query_one("#confirm-upload", Button).disabled = True
+        self.query_one("#cancel-upload", Button).disabled = True
+
+    async def run_script(self, *args: str, timeout: float = 30) -> tuple[int, str]:
+        return await command_output(*args, timeout=timeout)
+
+    @work(exclusive=True, group="brand-operation")
+    async def preview_worker(self) -> None:
+        self.status("OPENING CAMERA PREVIEW…")
+        code, output = await self.run_script(str(SCRIPTS_DIR / "portrait.sh"), "preview")
+        if code:
+            self.status("CAMERA PREVIEW FAILED")
+            self.write_log(f"[red]{output}[/]")
+        else:
+            self.status("CAMERA PREVIEW OPEN   Frame yourself, then capture")
+            self.write_log(output)
+
+    @work(exclusive=True, group="brand-operation")
+    async def capture_worker(self) -> None:
+        self.status("CAPTURING 4K PORTRAIT…")
+        code, output = await self.run_script(str(SCRIPTS_DIR / "portrait.sh"), "shoot", timeout=30)
+        if code:
+            self.status("PORTRAIT CAPTURE FAILED")
+            self.write_log(f"[red]{output}[/]")
+        else:
+            latest = self.latest_portrait()
+            self.status(f"PORTRAIT SAVED   {latest.name if latest else ''}")
+            self.write_log(output)
+
+    @work(exclusive=True, group="brand-operation")
+    async def review_worker(self) -> None:
+        code, output = await self.run_script(str(SCRIPTS_DIR / "portrait.sh"), "sheet")
+        if code:
+            self.status("NO PORTRAITS TO REVIEW")
+            self.write_log(f"[yellow]{output}[/]")
+        else:
+            self.status("CONTACT SHEET OPEN")
+            self.write_log(output)
+
+    @work(exclusive=True, group="brand-operation")
+    async def generate_worker(self) -> None:
+        if self.pending is None:
+            return
+        style, source = self.pending
+        self.clear_pending()
+        self.status("GENERATING WITH NANO BANANA…")
+        self.write_log(f"Generating [bold]{style}[/] from {source.name}…")
+        code, output = await self.run_script(
+            str(SCRIPTS_DIR / "generate_logo.py"), str(source),
+            f"--style={style}", "--count=1", "--confirm-upload", timeout=600,
+        )
+        if code:
+            self.status("LOGO GENERATION FAILED")
+            self.write_log(f"[red]{output}[/]")
+            return
+        self.refresh_candidates()
+        newest = self.candidate_options()[0][1]
+        detached("mpv", newest, "--title=Logo Candidate", "--no-audio", "--no-osc", "--really-quiet")
+        self.status("LOGO CANDIDATE READY   Opened for review")
+        self.write_log(output)
+
+    def request_portrait_style(self, style: str) -> None:
+        source = self.latest_portrait()
+        if source is None:
+            self.status("CAPTURE A PORTRAIT FIRST")
+            self.write_log("[yellow]No portrait exists yet. Open the camera and capture one first.[/]")
+            return
+        self.set_pending(style, source)
+
+    def request_peel_refinement(self) -> None:
+        selected = str(self.query_one("#brand-candidate", Select).value or "")
+        source = Path(selected)
+        if not selected or not source.is_file():
+            self.status("SELECT A LOGO CANDIDATE FIRST")
+            return
+        self.set_pending("preserve-style-peel", source)
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+        if button_id == "brand-preview":
+            self.preview_worker()
+        elif button_id == "brand-capture":
+            self.capture_worker()
+        elif button_id == "brand-review":
+            self.review_worker()
+        elif button_id == "style-vintage":
+            self.request_portrait_style("vintage-sticker")
+        elif button_id == "style-retro":
+            self.request_portrait_style("retro-tech")
+        elif button_id == "style-editorial":
+            self.request_portrait_style("editorial-vector")
+        elif button_id == "style-screenprint":
+            self.request_portrait_style("screenprint")
+        elif button_id == "style-peel":
+            self.request_peel_refinement()
+        elif button_id == "confirm-upload":
+            self.generate_worker()
+        elif button_id == "cancel-upload":
+            self.clear_pending()
+            self.status("GENERATION CANCELLED   Nothing was uploaded")
+        elif button_id == "brand-open":
+            selected = str(self.query_one("#brand-candidate", Select).value or "")
+            if selected and Path(selected).is_file():
+                detached("mpv", selected, "--title=Logo Candidate", "--no-audio", "--no-osc", "--really-quiet")
+
+    async def action_back(self) -> None:
+        # Close only the portrait preview that this workflow owns; this frees the
+        # webcam before returning to the recording page.
+        await self.run_script(str(SCRIPTS_DIR / "portrait.sh"), "close")
+        self.app.pop_screen()
 
 
 class ShortStudio(App[None]):
@@ -220,6 +443,63 @@ class ShortStudio(App[None]):
         height: 1;
         background: #152235;
     }
+
+    /* Brand Studio is a separate screen: focused, not added to recording UI. */
+    #brand-main {
+        height: 1fr;
+        padding: 0 1;
+    }
+
+    #brand-status {
+        height: 3;
+        padding: 1 2;
+        background: #17263a;
+        color: #8fe3ff;
+        text-style: bold;
+        border-bottom: solid #27405d;
+    }
+
+    .brand-panel {
+        height: auto;
+        margin-top: 1;
+        padding: 0 1 1 1;
+        border: round #5c487b;
+        background: #171327;
+    }
+
+    .brand-title {
+        color: #f1a9da;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    #brand-main Button {
+        min-width: 15;
+    }
+
+    #brand-main Select {
+        height: 3;
+        width: 1fr;
+        background: #211b37;
+        border: tall #5c487b;
+    }
+
+    #brand-log {
+        height: 8;
+        margin-top: 1;
+        padding: 0 1;
+        border: round #5c487b;
+        background: #0c0a16;
+        scrollbar-color: #725994;
+    }
+
+    #confirm-upload {
+        background: #7a315e;
+    }
+
+    #cancel-upload {
+        background: #4a3440;
+    }
     """
 
     BINDINGS = [
@@ -228,6 +508,7 @@ class ShortStudio(App[None]):
         ("b", "background", "Studio / desktop"),
         ("c", "camera", "Show / hide camera"),
         ("f", "process", "Process"),
+        ("l", "brand", "Brand studio"),
         ("q", "quit", "Quit"),
     ]
 
@@ -939,6 +1220,17 @@ class ShortStudio(App[None]):
 
     def action_process(self) -> None:
         self.process_worker()
+
+    async def action_brand(self) -> None:
+        if self.recording:
+            self.notify("Stop recording before opening Brand Studio", severity="warning")
+            return
+        # Both workflows use the same physical webcam. Release Short Studio's
+        # overlay before Brand Studio opens its portrait camera preview.
+        if self.camera_visible:
+            await self.hide_camera()
+            self.query_one("#camera", Button).label = "Show camera"
+        self.push_screen(BrandStudioScreen())
 
     async def action_quit(self) -> None:
         if self.recording:
